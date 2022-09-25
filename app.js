@@ -19,7 +19,9 @@ app.use(
 
 // api
 const userRouter = require("./router/user");
+const fileRouter = require("./router/file");
 app.use("/user", userRouter);
+app.use("/file", fileRouter);
 
 // error
 app.use((err, req, res, next) => {

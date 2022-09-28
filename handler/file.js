@@ -63,7 +63,7 @@ module.exports = {
         `${chunkIdx}.temp`
       );
 
-      fs.writeFileSync(dirPath, file);
+      fs.renameSync(file.path, dirPath);
 
       res.send({
         code: 200,

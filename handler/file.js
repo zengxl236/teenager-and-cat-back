@@ -3,11 +3,16 @@ const fs = require("fs");
 const path = require("path");
 const multiparty = require("multiparty");
 
+const getTmpDirPath = (hash) => path.join(__dirname, `../file/tmp/${hash}`);
+const getDirPath = (hash) => path.join(__dirname, `../file/${hash}`);
+const getChunkPath = (hash, name) =>
+  path.join(__dirname, `../file/tmp/${hash}/name`);
+
 module.exports = {
   exists_handler: (req, res) => {
-    const { hash, size } = req.query;
-    const sql = "select id from file where hash=? and size=? and is_delete=0";
-    db.query(sql, [hash, size], (err, results) => {
+    const { hash } = req.query;
+    const sql = "select id from file where hash=? and is_delete=0";
+    db.query(sql, hash, (err, results) => {
       if (err) {
         throw new Error("连接数据库失败");
       }
@@ -21,8 +26,7 @@ module.exports = {
         return;
       }
 
-      const dirPath = path.join(__dirname, `../file/${hash}_${size}`);
-
+      const dirPath = getTmpDirPath(hash);
       if (!fs.existsSync(dirPath)) {
         res.send({
           code: 200,
@@ -37,7 +41,7 @@ module.exports = {
       res.send({
         code: 200,
         message: "该文件部分上传",
-        data: files.map((file) => file.name.split(".")[0]),
+        data: files.map((name) => name.split("_")[0]),
       });
     });
   },
@@ -57,13 +61,22 @@ module.exports = {
       const currentHash = fields.currentHash[0];
       const file = files.file[0];
 
-      const dirPath = path.join(
-        __dirname,
-        `../file/${hash}_${size}`,
-        `${chunkIdx}.temp`
-      );
+      const dirPath = getTmpDirPath(hash);
+      const filePath = path.join(dirPath, `${chunkIdx}_${name}`);
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath);
+      }
+      fs.renameSync(file.path, filePath);
+      const dirFiles = fs.readdirSync(dirPath);
 
-      fs.renameSync(file.path, dirPath);
+      if (dirFiles.length === chunks) {
+        const stream = fs.createWriteStream(getDirPath(hash), name);
+
+        dirFiles.forEach((name) => {
+          const chunkStream = fs.createReadStream(getChunkPath(hash, name));
+          chunkStream.pipe(stream);
+        });
+      }
 
       res.send({
         code: 200,
